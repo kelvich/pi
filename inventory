@@ -1,3 +1,17 @@
+[nodes]
 node1 ansible_host=192.168.2.6 ansible_ssh_user=pi
 node2 ansible_host=192.168.2.3 ansible_ssh_user=pi
 node3 ansible_host=192.168.2.4 ansible_ssh_user=pi
+
+[nodes:vars]
+makejobs=4
+
+pg_repo=git://github.com/postgrespro/postgres_cluster.git
+pg_repo_key=None
+pg_version_tag=master
+
+pg_prefix="{{ansible_env.HOME}}/pg_cluster"
+pg_src="{{pg_prefix}}/src"
+pg_dst="{{pg_prefix}}/install"
+pg_datadir="{{pg_prefix}}/data_{{pg_port}}"
+
