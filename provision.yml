@@ -1,0 +1,74 @@
+---
+
+- hosts: all
+
+  roles:
+  - role: postgres
+    pg_port: 5432
+    pg_repo: https://github.com/postgrespro/postgres_cluster.git
+    pg_version_tag: master
+    pg_destroy_and_init: true
+    pg_config_role:
+    - line: "multimaster.buffer_size = 65536"
+
+  tasks:
+  - name: generate connstrings
+    set_fact:
+      connstr: "host={{item}} user={{ansible_ssh_user}} dbname=postgres"
+    with_items:
+      "{{ groups['all'] | batch(nnodes | d(3) | int) | first }}"
+    register: connstrs
+
+  - name: make a list
+    set_fact:
+      connections: "{{ connstrs.results | map(attribute='ansible_facts.connstr') | join(', ') }}"
+
+  - name: build raftable
+    shell: "make clean && make -j {{makejobs}} install"
+    args:
+      chdir: "{{pg_src}}/contrib/raftable"
+
+  - name: build multimaster
+    shell: "make clean && make -j {{makejobs}} install"
+    args:
+      chdir: "{{pg_src}}/contrib/mmts"
+ 
+  - name: set up hostnames 
+    lineinfile:
+      dest: /etc/hosts
+      regexp: '.*{{ item }}$'
+      line: "{{ hostvars[item].ansible_default_ipv4.address }} {{item}}"
+      state: present
+    when: "{{hostvars[item].ansible_default_ipv4.address is defined}}"
+    with_items: "{{groups['all']}}"
+    become: yes
+
+  - name: enable dtm extension on datanodes
+    lineinfile:
+      dest: "{{pg_datadir}}/postgresql.conf"
+      line: "{{item}}"
+      state: present
+    with_items:
+    - "wal_level = logical"
+    - "max_wal_senders = 5"
+    - "wal_sender_timeout = 0"
+    - "max_replication_slots = 5"
+    - "max_connections = 30"
+    - "max_worker_processes = 20"
+    - "shared_preload_libraries = 'raftable,multimaster'"
+    - "deadlock_timeout = 10s"
+    - "multimaster.conn_strings = '{{connections}}'"
+    - "multimaster.node_id = {{ inventory_hostname | regex_replace('[a-z]+([0-9]+)', '\\1') }}"
+    - "multimaster.buffer_size = 65536"
+    - "multimaster.queue_size = 10485760" # 10mb
+    - "multimaster.workers = 5"
+    - "multimaster.use_dtm = 1"
+    - "multimaster.twopc_min_timeout = 60000"
+    - "multimaster.ignore_tables_without_pk = true"
+    - "multimaster.use_raftable = false"
+
+  - name: restart postgrespro
+    command: "{{pg_dst}}/bin/pg_ctl restart -w -D {{pg_datadir}} -l {{pg_datadir}}/pg.log"
+    environment:
+      LD_LIBRARY_PATH: "{{pg_dst}}/lib/"
+
