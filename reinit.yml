@@ -1,0 +1,78 @@
+---
+
+- hosts: nodes
+
+#   roles:
+#   - role: postgres
+#     pg_port: 15432
+#     pg_repo: https://github.com/postgrespro/postgres_cluster.git
+#     pg_version_tag: master
+#     pg_destroy_and_init: true
+#     pg_datadir: "/mnt/pgtmpfs/data_{{pg_port}}"
+#     pg_config_role:
+#     - line: "multimaster.buffer_size = 65536"
+
+  tasks:
+
+  - name: pkill pg
+    shell: 'pkill -9 postgres || true'
+
+  - name: generate connstrings
+    set_fact:
+      connstr: "host={{item}} user={{ansible_ssh_user}} port={{pg_port}} dbname=postgres sslmode=disable"
+    with_items:
+      groups['nodes'] | reverse | batch(nnodes | d(3) | int) | first
+    register: connstrs
+
+  - name: make a list
+    set_fact:
+      connections: "{{ connstrs.results | map(attribute='ansible_facts.connstr') | join(', ') }}"
+
+  - name: remove datadirs on datanodes
+    command: "rm -rf {{pg_datadir}}"
+
+  - name: create datadirs on datanodes
+    command: "{{pg_dst}}/bin/initdb {{pg_datadir}}"
+    environment:
+      LD_LIBRARY_PATH: "{{pg_dst}}/lib/"
+
+  - name: enable dtm extension on datanodes
+    lineinfile:
+      dest: "{{pg_datadir}}/postgresql.conf"
+      line: "{{item}}"
+      state: present
+    with_items:
+    - "listen_addresses='*'"
+    - "port = {{pg_port}}"
+    - "wal_level = logical"
+    - "max_wal_senders = 10"
+    - "wal_sender_timeout = 0"
+    - "max_replication_slots = 10"
+    - "max_connections = 50"
+    - "max_worker_processes = 30"
+    - "max_wal_senders = 10"
+    - "shared_preload_libraries = 'raftable,multimaster'"
+    - "max_prepared_transactions = 50"
+    - "default_transaction_isolation = 'repeatable read'"
+
+    - "multimaster.conn_strings = '{{connections}}'"
+    - "multimaster.node_id = {{ node_id }}"
+    - "multimaster.use_raftable = false"
+    - "multimaster.workers = 4"
+    - "multimaster.max_nodes = 3"
+
+  - name: enable blind trust on datanodes
+    lineinfile:
+      dest: "{{pg_datadir}}/pg_hba.conf"
+      line: "{{item}}"
+      state: present
+    with_items:
+      - "host all all 0.0.0.0/0 trust"
+      - "host replication all 0.0.0.0/0 trust"
+      - "local replication all trust"
+
+  - name: start postgrespro
+    command: "{{pg_dst}}/bin/pg_ctl start -D {{pg_datadir}} -l {{pg_datadir}}/pg.log"
+    environment:
+      LD_LIBRARY_PATH: "{{pg_dst}}/lib/"
+
