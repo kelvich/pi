@@ -1,0 +1,45 @@
+---
+
+- hosts: nodes
+
+  tasks:
+
+  - name: pkill pg
+    shell: 'pkill -9 postgres || true'
+
+  - name: remove datadirs on datanodes
+    command: "rm -rf {{pg_datadir}}"
+
+  - name: create datadirs on datanodes
+    command: "{{pg_dst}}/bin/initdb {{pg_datadir}}"
+    environment:
+      LD_LIBRARY_PATH: "{{pg_dst}}/lib/"
+
+  - name: enable dtm extension on datanodes
+    lineinfile:
+      dest: "{{pg_datadir}}/postgresql.conf"
+      line: "{{item}}"
+      state: present
+    with_items:
+    - "max_prepared_transactions = 100"
+    - "shared_buffers = 2048MB"
+    - "wal_level = hot_standby"
+    - "max_wal_senders = 2"
+    - "max_replication_slots = 2"
+    - "listen_addresses='0.0.0.0'"
+
+  - name: enable blind trust on datanodes
+    lineinfile:
+      dest: "{{pg_datadir}}/pg_hba.conf"
+      line: "{{item}}"
+      state: present
+    with_items:
+      - "host all all 0.0.0.0/0 trust"
+      - "host replication all 0.0.0.0/0 trust"
+      - "local replication all trust"
+
+  - name: start postgrespro
+    command: "{{pg_dst}}/bin/pg_ctl start -D {{pg_datadir}} -l {{pg_datadir}}/pg.log"
+    environment:
+      LD_LIBRARY_PATH: "{{pg_dst}}/lib/"
+
