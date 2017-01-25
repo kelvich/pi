@@ -1,7 +1,7 @@
 [nodes]
-node1 ansible_host=192.168.2.7 ansible_ssh_user=pi node_id=1
-node2 ansible_host=192.168.2.8 ansible_ssh_user=pi node_id=2
-node3 ansible_host=192.168.2.9 ansible_ssh_user=pi node_id=3
+node1 ansible_host=192.168.2.6 ansible_ssh_user=pi node_id=1
+node2 ansible_host=192.168.2.3 ansible_ssh_user=pi node_id=2
+node3 ansible_host=192.168.2.4 ansible_ssh_user=pi node_id=3
 
 [nodes:vars]
 makejobs=4
@@ -15,4 +15,3 @@ pg_prefix="{{ansible_env.HOME}}/pg_cluster"
 pg_src="{{pg_prefix}}/src"
 pg_dst="{{pg_prefix}}/install"
 pg_datadir="{{pg_prefix}}/data_{{pg_port}}"
-

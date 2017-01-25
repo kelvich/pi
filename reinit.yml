@@ -2,16 +2,6 @@
 
 - hosts: nodes
 
-#   roles:
-#   - role: postgres
-#     pg_port: 15432
-#     pg_repo: https://github.com/postgrespro/postgres_cluster.git
-#     pg_version_tag: master
-#     pg_destroy_and_init: true
-#     pg_datadir: "/mnt/pgtmpfs/data_{{pg_port}}"
-#     pg_config_role:
-#     - line: "multimaster.buffer_size = 65536"
-
   tasks:
 
   - name: pkill pg
@@ -19,9 +9,9 @@
 
   - name: generate connstrings
     set_fact:
-      connstr: "host={{item}} user={{ansible_ssh_user}} port={{pg_port}} dbname=postgres sslmode=disable"
+      connstr: "host={{item}} user={{ansible_ssh_user}} port={{pg_port}} dbname=postgres"
     with_items:
-      groups['nodes'] | reverse | batch(nnodes | d(3) | int) | first
+      groups['nodes'] | batch(nnodes | d(3) | int) | first
     register: connstrs
 
   - name: make a list
@@ -46,20 +36,22 @@
     - "port = {{pg_port}}"
     - "wal_level = logical"
     - "max_wal_senders = 10"
-    - "wal_sender_timeout = 0"
     - "max_replication_slots = 10"
     - "max_connections = 50"
     - "max_worker_processes = 30"
     - "max_wal_senders = 10"
-    - "shared_preload_libraries = 'raftable,multimaster'"
+    - "shared_preload_libraries = 'multimaster'"
     - "max_prepared_transactions = 50"
     - "default_transaction_isolation = 'repeatable read'"
+    - "fsync = off"
 
     - "multimaster.conn_strings = '{{connections}}'"
     - "multimaster.node_id = {{ node_id }}"
-    - "multimaster.use_raftable = false"
     - "multimaster.workers = 4"
     - "multimaster.max_nodes = 3"
+    - "multimaster.min_2pc_timeout = 100000"
+    - "multimaster.heartbeat_send_timeout = 1000"
+    - "multimaster.heartbeat_recv_timeout = 5000"
 
   - name: enable blind trust on datanodes
     lineinfile:

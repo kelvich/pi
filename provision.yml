@@ -31,29 +31,21 @@
       create: yes
     become: yes
   
-  # - name: clone postgres sources
-  #   git: repo={{pg_repo}}
-  #     dest={{pg_src}}
-  #     version={{pg_version_tag}}
-  #     depth=1
-  #     accept_hostkey=True
-  #     key_file={{pg_repo_key}}
-  #   register: pg_sources
+  - name: clone postgres sources
+    git: repo={{pg_repo}}
+      dest={{pg_src}}
+      version={{pg_version_tag}}
+      depth=1
+      accept_hostkey=True
+      key_file={{pg_repo_key}}
+    register: pg_sources
   
-  # - name: build and install
-  #   shell: env CFLAGS="-O0" ./configure --prefix={{pg_dst}} --enable-debug --without-zlib && make clean && make -j {{makejobs}} && make install
-  #   args:
-  #     chdir: "{{pg_src}}"
-  #     creates: "{{pg_dst}}/bin/postgres"
-  #   # when: false
-  
-  - debug: var=pg_src
-
-
-  - name: build raftable
-    shell: "make clean && make -j {{makejobs}} install"
+  - name: build and install
+    shell: env CFLAGS="-O0" ./configure --prefix={{pg_dst}} --enable-debug --without-zlib && make clean && make -j {{makejobs}} && make install
     args:
-      chdir: "{{pg_src}}/contrib/raftable"
+      chdir: "{{pg_src}}"
+
+  # - debug: var=pg_src
 
   - name: build multimaster
     shell: "make clean && make -j {{makejobs}} install"
