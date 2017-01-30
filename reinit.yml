@@ -52,6 +52,8 @@
     - "multimaster.min_2pc_timeout = 100000"
     - "multimaster.heartbeat_send_timeout = 1000"
     - "multimaster.heartbeat_recv_timeout = 5000"
+    - "multimaster.connect_timeout = 20000"
+    - "multimaster.reconnect_timeout = 10000"
 
   - name: enable blind trust on datanodes
     lineinfile:
