@@ -19,10 +19,11 @@
     when: ansible_os_family == "Debian"
     become: yes
   
-  - name: increase semaphores
-    sysctl: name=kernel.sem value="1000 128000 128 512"
-    become: yes
+  # - name: increase semaphores
+  #   sysctl: name=kernel.sem value="1000 128000 128 512"
+  #   become: yes
   
+
   - name: increase open files
     lineinfile:
       dest: /etc/security/limits.d/cluster.conf
@@ -30,7 +31,7 @@
       state: present
       create: yes
     become: yes
-  
+
   - name: clone postgres sources
     git: repo={{pg_repo}}
       dest={{pg_src}}
@@ -66,4 +67,3 @@
     when: "{{hostvars[item].ansible_default_ipv4.address is defined}}"
     with_items: "{{groups['all']}}"
     become: yes
-
